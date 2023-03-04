@@ -1,0 +1,6 @@
+httpx
+boto3
+fastapi
+uvicorn
+databases
+aiosqlite
