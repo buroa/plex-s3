@@ -4,6 +4,7 @@ import boto3
 import logging
 
 from databases import Database
+from async_lru import alru_cache
 from fastapi import FastAPI, Request
 from fastapi.responses import RedirectResponse
 from fastapi.responses import StreamingResponse
@@ -46,7 +47,8 @@ async def database_disconnect():
     await database.disconnect()
 
 
-def create_presigned_url(object_name, expiration=18000):
+@alru_cache(ttl=86400)
+async def create_presigned_url(object_name, expiration=86400):
     """Generate a presigned URL to share an S3 object
 
     :param bucket_name: string
@@ -62,17 +64,17 @@ def create_presigned_url(object_name, expiration=18000):
             ExpiresIn=expiration,
         )
     except Exception as e:
-        logging.exception(e)
-        return None
+        raise e
     else:
         return response
 
 
+@alru_cache(ttl=60)
 async def get_file_for_part(part):
     try:
         records = await database.fetch_one(query.format(id=part))
     except Exception as e:
-        logging.exception(e)
+        raise e
     else:
         return records[0] if records else None
 
@@ -85,13 +87,16 @@ async def ping():
 @app.api_route("/library/parts/{part}/{epoch}/{file}", methods=["GET", "PUT", "PATCH"])
 async def stream(request: Request, part: str, epoch: int, file: str):
     if request.method == "GET":
-        file = await get_file_for_part(part)
-
-        if file:
-            url = create_presigned_url(file[1:])
-
-            if url:
-                return RedirectResponse(url, status_code=307)
+        try:
+            media_file = await get_file_for_part(part)
+            presigned_url = (
+                await create_presigned_url(media_file[1:]) if media_file else None
+            )
+        except Exception as e:
+            logging.exception(e)
+        else:
+            if presigned_url:
+                return RedirectResponse(presigned_url, status_code=307)
 
     url = httpx.URL(plex_url).join(request.url.path)
     req = client.build_request(

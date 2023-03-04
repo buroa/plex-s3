@@ -4,3 +4,4 @@ fastapi
 uvicorn
 databases
 aiosqlite
+async-lru
