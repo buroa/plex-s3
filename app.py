@@ -47,7 +47,7 @@ async def database_disconnect():
     await database.disconnect()
 
 
-@alru_cache(ttl=86400)
+@alru_cache(maxsize=256, ttl=43200)
 async def create_presigned_url(object_name, expiration=86400):
     """Generate a presigned URL to share an S3 object
 
