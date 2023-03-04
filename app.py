@@ -69,7 +69,7 @@ async def create_presigned_url(object_name, expiration=86400):
         return response
 
 
-@alru_cache(ttl=60)
+@alru_cache(maxsize=256, ttl=60)
 async def get_file_for_part(part):
     try:
         records = await database.fetch_one(query.format(id=part))
